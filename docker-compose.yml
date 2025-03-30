@@ -1,0 +1,76 @@
+version: '3'
+
+services:
+  # MySQL Database
+  mysql:
+    image: mysql:8.0
+    container_name: programming_qa_mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: programming_qa
+      MYSQL_USER: qauser
+      MYSQL_PASSWORD: qapassword
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./mysql/init:/docker-entrypoint-initdb.d
+
+  # CouchDB for storing screenshots
+  couchdb:
+    image: couchdb:3.2.2
+    container_name: programming_qa_couchdb
+    restart: always
+    environment:
+      COUCHDB_USER: admin
+      COUCHDB_PASSWORD: password
+    ports:
+      - "5984:5984"
+    volumes:
+      - couchdb_data:/opt/couchdb/data
+
+  # Node.js API Server
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: programming_qa_api
+    restart: always
+    ports:
+      - "4000:4000"
+    environment:
+      - NODE_ENV=development
+      - PORT=4000
+      - MYSQL_HOST=mysql
+      - MYSQL_PORT=3306
+      - MYSQL_USER=qauser
+      - MYSQL_PASSWORD=qapassword
+      - MYSQL_DATABASE=programming_qa
+      - COUCHDB_URL=http://admin:password@couchdb:5984
+    volumes:
+      - ./api:/app
+      - /app/node_modules
+    depends_on:
+      - mysql
+      - couchdb
+
+  # React Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: programming_qa_frontend
+    restart: always
+    ports:
+      - "3001:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - api
+
+volumes:
+  mysql_data:
+  couchdb_data:
+
